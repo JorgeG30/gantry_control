@@ -34,45 +34,44 @@ wC = 0
 #Set the delay between high and low on the
 delay = 1/SPR
 
-currentTime = time()
-endTime = currentTime + 10
-
-#Run a loop that when a certain button is pressed, manual control ends
-while currentTime < endTime + 10:
+#Run a loop that ends when enter is pressed, manual control ends
+#W is UP, S is down, A is left. D is right
+while True:
 	
 	if keyboard.is_pressed('d'):
+		dC = dC +1
 		GPIO.output(XDIR, CW)
 		GPIO.output(XSTEP, GPIO.HIGH)
 		sleep(delay)
 		GPIO.output(XSTEP, GPIO.LOW)
-		sleep(delay) 
-		dC = dC + 1
-	
+		sleep(delay)
+		 
 	if keyboard.is_pressed('a'):
+		aC = aC + 1
 		GPIO.output(XDIR, CCW)
 		GPIO.output(XSTEP, GPIO.HIGH)
 		sleep(delay)
 		GPIO.output(XSTEP, GPIO.LOW)
 		sleep(delay)
-		aC = aC + 1
 		
-	if keyboard.is_pressed('w'):
+	if keyboard.is_pressed('s'):
+		sC = sC + 1
 		GPIO.output(YDIR, CW)
 		GPIO.output(YSTEP, GPIO.HIGH)
 		sleep(delay)
 		GPIO.output(YSTEP, GPIO.LOW)
 		sleep(delay)
-		wC = wC + 1
 		
-	if keyboard.is_pressed('s'):
+	if keyboard.is_pressed('w'):
+		wC = wC + 1
 		GPIO.output(YDIR, CCW)
 		GPIO.output(YSTEP, GPIO.HIGH)
 		sleep(delay)
 		GPIO.output(YSTEP, GPIO.LOW)
 		sleep(delay)
-		sC = sC + 1
 		
-	currentTime = time()	
+	if keyboard.is_pressed('esc'):
+		break	
 		
 print 'Number of times s was pressed: ', sC
 print 'Number of times a was pressed: ', aC
