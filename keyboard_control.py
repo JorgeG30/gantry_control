@@ -1,82 +1,87 @@
-#Import GPIO library to send signals to GPIO Pins to control motors
-#Import time in order to control delay between stuff 
-#Import keyboard in order to catch arrow key presses
+#Import pigpio, time, and keyboard
 from time import *
-import RPi.GPIO as GPIO
+import pigpio
 import keyboard
+import rotary_encoder
 
-#GPIO PIn assignments
+#Connect to pigpio daemon
+pi = pigpio.pi()
+
+#GPIO Pin assignments
 XDIR = 20
 XSTEP = 21
 YDIR = 19
 YSTEP = 16
+XA = 17
+XB = 18
 
 #Direction Variables
 CW = 1
 CCW = 0
 
-#Steps per Revolution based on ST M5405 Manual
-SPR = 64 
+#Define callback function for encoder
+def XCallback(way):
+	global xpos
+	xpos = xpos + way
 
+#Variables to hold the positions of the encoder and therefore the motor
+xpos = 0
+ypos = 0
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(XDIR, GPIO.OUT)
-GPIO.setup(YDIR, GPIO.OUT)
-GPIO.setup(XSTEP, GPIO.OUT)
-GPIO.setup(YSTEP, GPIO.OUT)
+#Set up pins as outputs
+pi.set_mode(XDIR, pigpio.OUTPUT)
+pi.set_mode(XSTEP, pigpio.OUTPUT)
+pi.set_mode(YDIR, pigpio.OUTPUT)
+pi.set_mode(YSTEP, pigpio.OUTPUT)
 
 #Counter for button presses
 aC = 0
 sC = 0
 dC = 0
 wC = 0
-
-#Set the delay between high and low on the
-delay = 1/SPR
+	
+#Initialize decoders for X and Y encoders
+XDecoder = rotary_encoder.decoder(pi, XA, XB, XCallback)
 
 #Run a loop that ends when enter is pressed, manual control ends
 #W is UP, S is down, A is left. D is right
 while True:
 	
 	if keyboard.is_pressed('d'):
-		dC = dC +1
-		GPIO.output(XDIR, CW)
-		GPIO.output(XSTEP, GPIO.HIGH)
-		sleep(delay)
-		GPIO.output(XSTEP, GPIO.LOW)
-		sleep(delay)
+		pi.write(XDIR, CW)
+		pi.write(XSTEP, 1)
+		pi.write(XSTEP, 0)
+		dC = dC + 1
 		 
 	if keyboard.is_pressed('a'):
+		pi.write(XDIR, CCW)
+		pi.write(XSTEP, 1)
+		pi.write(XSTEP, 0)
 		aC = aC + 1
-		GPIO.output(XDIR, CCW)
-		GPIO.output(XSTEP, GPIO.HIGH)
-		sleep(delay)
-		GPIO.output(XSTEP, GPIO.LOW)
-		sleep(delay)
-		
+
 	if keyboard.is_pressed('s'):
+		pi.write(YDIR, CW)
+		pi.write(YSTEP, 1)
+		pi.write(YSTEP, 0)
 		sC = sC + 1
-		GPIO.output(YDIR, CW)
-		GPIO.output(YSTEP, GPIO.HIGH)
-		sleep(delay)
-		GPIO.output(YSTEP, GPIO.LOW)
-		sleep(delay)
 		
 	if keyboard.is_pressed('w'):
+		pi.write(YDIR, CCW)
+		pi.write(YSTEP, 1)
+		pi.write(YSTEP, 0)
 		wC = wC + 1
-		GPIO.output(YDIR, CCW)
-		GPIO.output(YSTEP, GPIO.HIGH)
-		sleep(delay)
-		GPIO.output(YSTEP, GPIO.LOW)
-		sleep(delay)
 		
 	if keyboard.is_pressed('esc'):
 		break	
-		
+
 print 'Number of times s was pressed: ', sC
 print 'Number of times a was pressed: ', aC
 print 'Number of times w was pressed: ', wC
 print 'Number of times d was pressed: ', dC
+
+print 'Encoder position: ', xpos
+
+
 		
 		
 	
