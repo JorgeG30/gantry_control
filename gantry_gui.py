@@ -425,7 +425,21 @@ def keyboard_control():
 def select_files():
 	global filenames
 	filenames = askopenfilenames(parent = root, title = 'Choose files')
-
+	
+	#Get number of files
+	files_len = len(filenames)
+	
+	#Create empty list of entry boxes and labels
+	trialEntries = {}
+	fileLabels = {}
+	
+	#While loop counter
+	c = 0
+	
+	#Create a label and an entry box for each file that was selected
+	while c < files_len:
+		Label(paths_box, text = str(filenames[c])).grid(row = c)
+		c += 1
 	
 def execute_files():
 	
@@ -484,12 +498,21 @@ root = Tk()
 """
 This section of the GUI will take care of the size and layout of the window
 """
-root.geometry("900x400")
+root.geometry("1000x500")
 root.title("Gantry Control GUI")
 left = Frame(root, borderwidth = 2, relief="solid")
 right = Frame(root, borderwidth = 2, relief="solid")
+
 left.pack(side = "left", expand = True, fill = "both")
 right.pack(side = "right", expand = True, fill = "both")
+
+file_buttons_box = Frame(right, borderwidth = 2, relief = "solid")
+file_buttons_box.pack(expand = False, fill = "both")
+
+paths_box = Frame(right, borderwidth = 2, relief = "solid")
+paths_box.pack(expand = False, fill = "both")
+
+
 
 """
 This section of the GUI will take care of the labels that will be used 
@@ -544,7 +567,8 @@ ytail_value = Label(left, fg = "dark green")
 ytail_value.config(text = str(gantry.yTail), width = 20)
 ytail_value.place(x = 210, y = 190)
 
-Label(right, fg = "dark green", text = "Autonomous Control", width = 20).place(x = 150, y = 50)
+auto_control = Label(file_buttons_box, fg = "dark green", text = "Autonomous Control", width = 20)
+auto_control.pack()
 
 """
 This section takes care of the buttons that are used in the GUI
@@ -552,20 +576,20 @@ This section takes care of the buttons that are used in the GUI
 keyboard_button = Button(left, text = 'Start Manual Control', width = 25, command = keyboard_control)
 keyboard_button.pack()
 
-selected_files = Button(right, text = 'Select Files to Open', width = 25, command = select_files)
+selected_files = Button(file_buttons_box, text = 'Select Files to Open', width = 25, command = select_files)
 selected_files.pack()
 
-execute_files = Button(right, text = 'Start Movement', width = 25, command = execute_files)
-execute_files.place(x = 120, y = 70)
+execute_files = Button(file_buttons_box, text = 'Start Movement', width = 25, command = execute_files)
+execute_files.pack()
 
-stop = Button(right, text = 'Pause Movement', width = 25, command = pause_execution)
-stop.place(x = 120, y = 100)
+stop = Button(file_buttons_box, text = 'Pause Movement', width = 25, command = pause_execution)
+stop.pack()
 
-continue_butt = Button(right, text = 'Continue Movement', width = 25, command = continue_execution)
-continue_butt.place(x = 120, y = 130)
+continue_butt = Button(file_buttons_box, text = 'Continue Movement', width = 25, command = continue_execution)
+continue_butt.pack()
 
-abort = Button(right, text = 'Abort', width = 25, command = abort)
-abort.place(x = 120, y = 160)
+abort = Button(file_buttons_box, text = 'Abort', width = 25, command = abort)
+abort.pack()
 
 end_keyboard_button = Button(left, text = 'End Manual Control', width = 25, command = end_keyboard_control)
 end_keyboard_button.pack()
