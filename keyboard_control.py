@@ -98,14 +98,14 @@ while True:
 		pi.write(XSTEP, 0)
 		dC = dC + 1
 		 
-	if keyboard.is_pressed('a'):
+	if keyboard.is_pressed('a') and currentX != 0:
 		pi.write(XDIR, CCW)
 		pi.write(XSTEP, 1)
 		pi.write(XSTEP, 0)
 		aC = aC + 1
 
-	if keyboard.is_pressed('s'):
-		pi.write(YDIR, CCw)
+	if keyboard.is_pressed('s') and currentY != 0:
+		pi.write(YDIR, CCW)
 		pi.write(YSTEP, 1)
 		pi.write(YSTEP, 0)
 		sC = sC + 1
@@ -165,7 +165,6 @@ print 'Current Position: (%d, %d)' % (currentX, currentY)
 		
 		
 	
-
 
 
 
