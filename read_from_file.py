@@ -426,8 +426,6 @@ while c > -1:
 print 'Remaining X Pulses: ', xPulses
 print 'Remaining Y Pulses: ', yPulses
 
-print 'Number of X Pulses required to reach the last point: ', num_xpulses
-print 'Number of Y Pulses required to reach the last point: ', num_ypulses 
 
 current_x = float(xPulses) / float(92)
 current_y = float(yPulses) / float(119)
