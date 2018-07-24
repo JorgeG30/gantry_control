@@ -1,4 +1,5 @@
 from Tkinter import *
+import ntpath
 import tkMessageBox
 from tkFileDialog import *
 import keyboard
@@ -51,6 +52,23 @@ tail_button_press = 0
 #Arrays that will store the coordinates and reverse coordinates
 x_coordinate = []
 y_coordinate = []
+
+#Parameters that can be set based on user input
+trials_per_file = {}
+
+#Arrays for modifiable buttons, labels, etc
+fileLabels = {}
+trialEntries = {}
+trialLabels = {}
+xScaleButtons = {}
+yScaleButtons = {}
+
+"""
+These are utility functions like extracting filenames from path
+"""
+def path_leaf(path):
+    head, tail = ntpath.split(path)
+    return tail or ntpath.basename(head)
 
 """
 These functions will be used to send keyboard commands via onscreen GUI buttons
@@ -425,21 +443,125 @@ def keyboard_control():
 def select_files():
 	global filenames
 	filenames = askopenfilenames(parent = root, title = 'Choose files')
+	displayFiles()
+	createScaleButtons()
+	createTrialEntries()
+	bindEntryLabels()
+
+def displayFiles():
+	global fileLabels
+	global filenames
+	global trialLabels
+	global trials_per_file
 	
-	#Get number of files
-	files_len = len(filenames)
+	"""
+	Check length of file labels. Destroy any previous labels and then create new ones
+	"""
+	j = 0
+	labels_len = len(fileLabels)
+	while j < labels_len:
+		fileLabels[j].destroy()
+		trialLabels[j].destroy()
+		j += 1 
 	
-	#Create empty list of entry boxes and labels
-	trialEntries = {}
-	fileLabels = {}
-	
-	#While loop counter
+	"""
+	Using path_leaf function, display the filenames without the path directory
+	"""
+	num_of_files = len(filenames)
 	c = 0
-	
-	#Create a label and an entry box for each file that was selected
-	while c < files_len:
-		Label(paths_box, text = str(filenames[c])).grid(row = c)
+	while c < num_of_files:
+		only_filename = path_leaf(filenames[c])
+		trials_per_file[c] = 1
+		tmp_label = Label(paths_box, text = str(only_filename))
+		tmp_trial_label = Label(paths_box, text = str(trials_per_file[c]))
+		trialLabels[c] = tmp_trial_label
+		fileLabels[c] = tmp_label
+		fileLabels[c].grid(row = c + 1, column = 0)
+		trialLabels[c].grid(row = c + 1, column = 4)
 		c += 1
+
+def createScaleButtons():
+	global xScaleButtons
+	global yScaleButtons
+	global filenames
+	
+	"""
+	Check for previous buttons
+	If there are any, destroy them
+	"""
+	
+	buttons_len = len(xScaleButtons)
+	j = 0
+	while j < buttons_len:
+		xScaleButtons[j].destroy()
+		yScaleButtons[j].destroy()
+		j += 1
+	
+	"""
+	Create new check buttons along with master control button
+	"""
+	num_of_files = len(filenames)
+	c = 0
+	while c < num_of_files:
+		xtmp_button = Checkbutton(paths_box)
+		ytmp_button = Checkbutton(paths_box)
+		xScaleButtons[c] = xtmp_button
+		xScaleButtons[c].grid(row = c + 1, column = 1)
+		yScaleButtons[c] = ytmp_button
+		yScaleButtons[c].grid(row = c + 1, column = 2)
+		c += 1
+
+def createTrialEntries():
+	global trials_per_file
+	global trialEntries
+	global filenames
+	
+	"""
+	Check whether there are already existing entry boxes
+	Destroy any existing ones and default the trial values to 1
+	"""
+	entries_len = len(trialEntries)
+	j = 0
+	while j < entries_len:
+		trials_per_file[j] = 1
+		trialEntries[j].destroy()
+		j += 1
+	
+	"""
+	Create entry boxes based on the number of files 
+	"""
+	num_of_files = len(filenames)
+	c = 0
+	while c < num_of_files:
+		tmp_entry = Entry(paths_box)
+		trialEntries[c] = tmp_entry
+		trialEntries[c].grid(row = c + 1, column = 3)
+		c += 1
+
+def bindEntryLabels():
+	
+	global trialEntries
+	global trials_per_file
+	"""
+	Here we will bind the entry labels to the return key
+	When pressed, the trial label beside it will update 
+	It will also store the value within the trials list
+	"""
+	
+	entries_len = len(trialEntries)
+	c = 0
+	while c < entries_len:
+		trialEntries[c].bind("<Return>", lambda event, index = c: updateTrials(event, index))
+		c += 1
+		
+def updateTrials(event, index):
+	global trialLabels
+	global trialEntries
+	global trials_per_file
+	trials_per_file[index] = trialEntries[index].get()
+	trialLabels[index].config(text = str(trials_per_file[index]))
+	trialLabels[index].update() 
+	
 	
 def execute_files():
 	
@@ -475,6 +597,13 @@ def execute_files():
 				y_coordinate.append(row[1])
 		
 		#Repeatedly call pathMovement depending on how many trials specified
+		"""
+		while c < num_trials:
+			pathMovement()
+			reverse cordinates
+			pathMovement()
+			sleep(wait time)
+		"""
 		pathMovement()
 		
 		#Reset coordinate arrays to 0
@@ -512,7 +641,23 @@ file_buttons_box.pack(expand = False, fill = "both")
 paths_box = Frame(right, borderwidth = 2, relief = "solid")
 paths_box.pack(expand = False, fill = "both")
 
+"""
+These are labels that acts as titles for checkbuttons, entries, etc.
+"""
+file_title_label = Label(paths_box, text = "File Name", padx = 5)
+file_title_label.grid(row = 0, column = 0)
 
+xscale_label = Label(paths_box, text = "Scale X Axis", padx = 5)
+xscale_label.grid(row = 0, column = 1)
+
+yscale_label = Label(paths_box, text = "Scale Y Axis", padx = 5)
+yscale_label.grid(row = 0, column = 2)
+
+enterTrials_label = Label(paths_box, text = "Enter No. of Trials", padx = 5)
+enterTrials_label.grid(row = 0, column = 3)
+
+numTrials_title = Label(paths_box, text = "No. of Trials", padx = 5)
+numTrials_title.grid(row = 0, column = 4)
 
 """
 This section of the GUI will take care of the labels that will be used 
