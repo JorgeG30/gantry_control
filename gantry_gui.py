@@ -55,6 +55,8 @@ y_coordinate = []
 
 #Parameters that can be set based on user input
 trials_per_file = {}
+x_scale_vars = {}
+y_scale_vars = {}
 
 #Arrays for modifiable buttons, labels, etc
 fileLabels = {}
@@ -126,6 +128,7 @@ def abort():
 	global filenames
 	abortNum = 1
 	filenames = None
+	pi.clear_bank_1((1 << gantry.XSTEP) | (1 << gantry.YSTEP))
 	gantry.xPulseReset = 0
 	gantry.yPulseReset = 0
 	gantry.getPos()
@@ -242,7 +245,10 @@ def pathMovement():
 							break
 							
 						if abortNum == 1:
-							return 0
+							print 'Aborting Movement'
+							root.update() 
+							root.update_idletasks()
+							return 1
 						
 						while pause_var == 1:
 							root.update() 
@@ -284,7 +290,10 @@ def pathMovement():
 							break
 						
 						if abortNum == 1:
-							return 0
+							print 'Aborting Movement'
+							root.update() 
+							root.update_idletasks()
+							return 1
 						
 						while pause_var == 1:
 							root.update() 
@@ -310,7 +319,10 @@ def pathMovement():
 				ylabel.update()
 				
 				if abortNum == 1:
-					return 0
+					print 'Aborting Movement'
+					root.update() 
+					root.update_idletasks()
+					return 1
 				
 				while pause_var == 1:
 					root.update() 
@@ -336,7 +348,10 @@ def pathMovement():
 				ylabel.update()
 				
 				if abortNum == 1:
-					return 0
+					print 'Aborting Movement'
+					root.update() 
+					root.update_idletasks()
+					return 1
 					
 				while pause_var == 1:
 					root.update() 
@@ -356,7 +371,7 @@ def pathMovement():
 		gantry.xPulseReset = 0
 		gantry.yPulseReset = 0
 		
-		sleep(1)
+		
 		
 	
 	
@@ -483,6 +498,8 @@ def displayFiles():
 def createScaleButtons():
 	global xScaleButtons
 	global yScaleButtons
+	global x_scale_vars
+	global y_scale_vars
 	global filenames
 	
 	"""
@@ -503,8 +520,12 @@ def createScaleButtons():
 	num_of_files = len(filenames)
 	c = 0
 	while c < num_of_files:
-		xtmp_button = Checkbutton(paths_box)
-		ytmp_button = Checkbutton(paths_box)
+		xtmp_var = IntVar()
+		ytmp_var = IntVar()
+		x_scale_vars[c] = xtmp_var
+		y_scale_vars[c] = ytmp_var
+		xtmp_button = Checkbutton(paths_box, variable = x_scale_vars[c])
+		ytmp_button = Checkbutton(paths_box, variable = y_scale_vars[c])
 		xScaleButtons[c] = xtmp_button
 		xScaleButtons[c].grid(row = c + 1, column = 1)
 		yScaleButtons[c] = ytmp_button
@@ -542,13 +563,14 @@ def bindEntryLabels():
 	
 	global trialEntries
 	global trials_per_file
+	global filenames
 	"""
 	Here we will bind the entry labels to the return key
 	When pressed, the trial label beside it will update 
 	It will also store the value within the trials list
 	"""
 	
-	entries_len = len(trialEntries)
+	entries_len = len(filenames)
 	c = 0
 	while c < entries_len:
 		trialEntries[c].bind("<Return>", lambda event, index = c: updateTrials(event, index))
@@ -564,6 +586,10 @@ def updateTrials(event, index):
 	
 	
 def execute_files():
+	
+	global trials_per_file
+	global abortNum
+	global outputFile
 	
 	"""
 	Check whether or not files have been selected
@@ -589,22 +615,40 @@ def execute_files():
 	"""
 	c = 0
 	while c < num_files:
+		#Counter that will be to determine how many times a path will be executed
+		trial_num = 0
 		
 		with open(filenames[c], 'r') as user_file:
 			reader = csv.reader(user_file, delimiter = ',')
 			for row in reader:
 				x_coordinate.append(row[0])
 				y_coordinate.append(row[1])
-		
+		"""
+		File format should be:
+		xpos,ypos,timestamp
+		"""
+		#Remove extension from filename 
+		filename_without_path = path_leaf(filenames[c])
+		filename_without_ext = filename_without_path.split(".")
 		#Repeatedly call pathMovement depending on how many trials specified
-		"""
-		while c < num_trials:
-			pathMovement()
-			reverse cordinates
-			pathMovement()
-			sleep(wait time)
-		"""
-		pathMovement()
+		while trial_num < int(trials_per_file[c]):
+			
+			#Create output file name
+			outputFile = filename_without_ext[0] + '_trial_' + str(trial_num + 1) + '.txt'
+			print outputFile
+			
+			
+			#pathMovement()
+			x_coordinate.reverse()
+			y_coordinate.reverse()
+			if abortNum == 1:
+				return 1
+			#pathMovement()
+			x_coordinate.reverse()
+			y_coordinate.reverse()
+			if abortNum == 1:
+				return 1
+			trial_num += 1
 		
 		#Reset coordinate arrays to 0
 		x_coordinate = []
