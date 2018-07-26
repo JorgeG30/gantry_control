@@ -133,14 +133,45 @@ def abort():
 	gantry.yPulseReset = 0
 	gantry.getPos()
 	
-def pathScaling():
-	pass
+def pathScaling(axis):
+	global x_coordinate
+	global y_coordinate
+	
+	"""
+	Scaling algorithm:
+	1. Subtract min value from all coordinates
+	2. Divide all coordinates by the max coordinate value
+	3. Subtract min from max and min of target range
+	4. Multiply all coordinates by new max
+	5. Add old min to the coordinates to bring within range
+	"""
+	
+	if axis == 1:
+		
+		"""
+		Implement x scaling
+		Check whether or not scaling is possible
+		If not possible, leave coordinates as is
+		"""
+	
+	if axis == 2:
+		
+		"""
+		Implement y scaling
+		Check whether or not scaling is possible
+		If not possible, leave coordinates as is
+		"""
 	
 def pathMovement():
 	
 	#Declare any global variables
 	global abortNum
 	global pause_var
+	global outputFile
+	
+	#Open file for appending
+	file_obj = open(outputFile, 'a')
+	
 	
 	#Set abortNum to 0 at the beginning of each function call
 	abortNum = 0
@@ -228,6 +259,7 @@ def pathMovement():
 							ylabel.config(text = str(gantry.currentY))
 							xlabel.update()
 							ylabel.update()
+							file_obj.write(str(gantry.currentX) + ',' + str(gantry.currentY) + ',' + str(time()) + '\n')
 							
 							
 						else:
@@ -239,6 +271,7 @@ def pathMovement():
 							ylabel.config(text = str(gantry.currentY))
 							xlabel.update()
 							ylabel.update()
+							file_obj.write(str(gantry.currentX) + ',' + str(gantry.currentY) + ',' + str(time()) + '\n')
 							
 						
 						if gantry.xPulseReset == x_req or gantry.yPulseReset == y_req:
@@ -274,6 +307,7 @@ def pathMovement():
 							ylabel.config(text = str(gantry.currentY))
 							xlabel.update()
 							ylabel.update()
+							file_obj.write(str(gantry.currentX) + ',' + str(gantry.currentY) + ',' + str(time()) + '\n')
 							
 						else:
 							pi.write(gantry.XSTEP, 1)
@@ -284,6 +318,7 @@ def pathMovement():
 							ylabel.config(text = str(gantry.currentY))
 							xlabel.update()
 							ylabel.update()
+							file_obj.write(str(gantry.currentX) + ',' + str(gantry.currentY) + ',' + str(time()) + '\n')
 							
 						
 						if gantry.xPulseReset == x_req or gantry.yPulseReset == y_req:
@@ -317,6 +352,7 @@ def pathMovement():
 				ylabel.config(text = str(gantry.currentY))
 				xlabel.update()
 				ylabel.update()
+				file_obj.write(str(gantry.currentX) + ',' + str(gantry.currentY) + ',' + str(time()) + '\n')
 				
 				if abortNum == 1:
 					print 'Aborting Movement'
@@ -346,6 +382,7 @@ def pathMovement():
 				ylabel.config(text = str(gantry.currentY))
 				xlabel.update()
 				ylabel.update()
+				file_obj.write(str(gantry.currentX) + ',' + str(gantry.currentY) + ',' + str(time()) + '\n')
 				
 				if abortNum == 1:
 					print 'Aborting Movement'
@@ -453,6 +490,10 @@ def keyboard_control():
 			up_pressed = 0
 			down_pressed = 0
 			left_pressed = 0
+	xlabel.config(text = str(gantry.currentX))
+	ylabel.config(text = str(gantry.currentY))
+	xlabel.update()
+	ylabel.update()
 	end_key = 0
 
 def select_files():
@@ -590,6 +631,8 @@ def execute_files():
 	global trials_per_file
 	global abortNum
 	global outputFile
+	global x_scale_vars
+	global y_scale_vars
 	
 	"""
 	Check whether or not files have been selected
@@ -630,6 +673,14 @@ def execute_files():
 		#Remove extension from filename 
 		filename_without_path = path_leaf(filenames[c])
 		filename_without_ext = filename_without_path.split(".")
+		
+		#Determine whether or not to scale 
+		if int(x_scale_vars[c].get()) == 1:
+			pathScaling(1)
+		
+		if int(y_scale_vars[c].get()) == 1:
+			pathScaling(2)
+		
 		#Repeatedly call pathMovement depending on how many trials specified
 		while trial_num < int(trials_per_file[c]):
 			
@@ -637,13 +688,18 @@ def execute_files():
 			outputFile = filename_without_ext[0] + '_trial_' + str(trial_num + 1) + '.txt'
 			print outputFile
 			
+			"""
+			TTL while loop
+			Iterates infinitely until a TTL pulse is received or a key is pressed
+			"""
 			
-			#pathMovement()
+			
+			pathMovement()
 			x_coordinate.reverse()
 			y_coordinate.reverse()
 			if abortNum == 1:
 				return 1
-			#pathMovement()
+			pathMovement()
 			x_coordinate.reverse()
 			y_coordinate.reverse()
 			if abortNum == 1:
