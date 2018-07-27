@@ -21,12 +21,12 @@ GPIO.setmode(GPIO.BCM)
 #Set readX and readY as inputs
 GPIO.setup(gantry.readX, GPIO.IN)
 GPIO.setup(gantry.readY, GPIO.IN)
-GPIO.setup(gantry.TTLPIN, GPIO.IN)
+GPIO.setup(gantry.TTLinput, GPIO.IN)
 
 #Create callbacks for these pins
 GPIO.add_event_detect(gantry.readX, GPIO.RISING, callback=gantry.xPulseCount)
 GPIO.add_event_detect(gantry.readY, GPIO.RISING, callback=gantry.yPulseCount)
-GPIO.add_event_detect(gantry.TTLPIN, GPIO.RISING, callback = gantry.TTLPulse)
+GPIO.add_event_detect(gantry.TTLinput, GPIO.RISING, callback = gantry.TTLPulse)
 
 #This variable will store all of the files selected by the user
 filenames = None
@@ -623,7 +623,8 @@ def updateTrials(event, index):
 	global trials_per_file
 	trials_per_file[index] = trialEntries[index].get()
 	trialLabels[index].config(text = str(trials_per_file[index]))
-	trialLabels[index].update() 
+	trialLabels[index].update()
+	root.focus() 
 	
 	
 def execute_files():
@@ -686,12 +687,15 @@ def execute_files():
 			
 			#Create output file name
 			outputFile = filename_without_ext[0] + '_trial_' + str(trial_num + 1) + '.txt'
-			print outputFile
+			#print outputFile
 			
-			"""
-			TTL while loop
-			Iterates infinitely until a TTL pulse is received or a key is pressed
-			"""
+			if gantry.TTL == 0:
+				while True:
+					print 'Entered TTL Loop'
+					root.update() 
+					root.update_idletasks()
+					if gantry.TTL == 1:
+						break
 			
 			
 			pathMovement()
@@ -704,7 +708,10 @@ def execute_files():
 			y_coordinate.reverse()
 			if abortNum == 1:
 				return 1
+			gantry.TTLPulse = 0
+			pi.write(gantry.TTLoutput, 1)
 			trial_num += 1
+			
 		
 		#Reset coordinate arrays to 0
 		x_coordinate = []
