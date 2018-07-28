@@ -53,6 +53,10 @@ tail_button_press = 0
 x_coordinate = []
 y_coordinate = []
 
+#Array that will store the new scaled coordinates
+x_scaled = {}
+y_scaled = {}
+
 #Parameters that can be set based on user input
 trials_per_file = {}
 x_scale_vars = {}
@@ -136,14 +140,24 @@ def abort():
 def pathScaling(axis):
 	global x_coordinate
 	global y_coordinate
+	global x_scaled
+	global y_scaled
+	currentx_temp = {}
+	currenty_temp = {}
+	
+	i = 0 
+	while i < len(x_coordinate):
+		x_coordinate[i] = float(x_coordinate[i])
+		y_coordinate[i] = float(y_coordinate[i])
+		i += 1
 	
 	"""
 	Scaling algorithm:
-	1. Subtract min value from all coordinates
-	2. Divide all coordinates by the max coordinate value
-	3. Subtract min from max and min of target range
-	4. Multiply all coordinates by new max
-	5. Add old min to the coordinates to bring within range
+	1. Calculate the difference between the head and tail values
+	2. Calculate the difference between the maximum and minimum value of the coordinates (x or y)
+	3. Calculate the ratio of 1 by 2
+	4. Multiply the ratio by the difference between the coordinate and the minimum value of coordinate
+	5. Add the head value to 4
 	"""
 	
 	if axis == 1:
@@ -153,6 +167,18 @@ def pathScaling(axis):
 		Check whether or not scaling is possible
 		If not possible, leave coordinates as is
 		"""
+		if gantry.xHead != gantry.xTail:
+			length = len(x_coordinate)
+			max_xcoordinate = max(x_coordinate)
+			min_xcoordinate = min(x_coordinate)
+			range_diff = gantry.xTail - gantry.xHead
+			value_diff = max_xcoordinate - min_xcoordinate
+			c = 0
+			""" Loop through the coordinates"""
+			while c < length :
+				currentx_temp[c] = x_coordinate[c] - min_xcoordinate
+				x_scaled[c]      = (((range_diff)/(value_diff))*currentx_temp[c]) + gantry.xHead
+				c+=1
 	
 	if axis == 2:
 		
@@ -161,13 +187,48 @@ def pathScaling(axis):
 		Check whether or not scaling is possible
 		If not possible, leave coordinates as is
 		"""
+		if gantry.yHead != gantry.yTail:
+			length = len(y_coordinate)
+			max_ycoordinate = max(y_coordinate)
+			min_ycoordinate = min(y_coordinate)
+			range_diff = gantry.yTail - gantry.yHead
+			value_diff = max_ycoordinate - min_ycoordinate
+			c = 0
+			""" Loop through the coordinates"""
+			while c < length :
+				currenty_temp[c]= y_coordinate[c] - min_ycoordinate
+				y_scaled[c]      = (((range_diff)/(value_diff))*currenty_temp[c]) + gantry.yHead
+				c += 1
 	
-def pathMovement():
+def pathMovement(file_index, reverse):
 	
 	#Declare any global variables
 	global abortNum
 	global pause_var
 	global outputFile
+	global x_scaled
+	global y_scaled
+	global x_coordinate
+	global y_coordinate
+	
+	oldx = x_coordinate
+	oldy = y_coordinate
+	
+	if int(x_scale_vars[file_index].get()) == 1:
+		x_coordinate = (x_scaled)
+		
+	if int(y_scale_vars[file_index].get()) == 1:
+		y_coordinate = tuple(y_scaled)
+	
+	if reverse == 1:
+		x_coordinate.reverse()
+		y_coordinate.reverse()
+	
+	
+	
+	
+	
+	
 	
 	#Open file for appending
 	file_obj = open(outputFile, 'a')
@@ -204,6 +265,8 @@ def pathMovement():
 		currY = gantry.currentY
 		nextX = x_coordinate[c]
 		nextY = y_coordinate[c]
+		
+		print 'Next Coordinate: (%f, %f)' % (nextX, nextY)
 		
 		nextX = int(float(nextX))
 		nextY = int(float(nextY))
@@ -248,7 +311,7 @@ def pathMovement():
 			
 			if denominator >= numerator:
 				while gantry.xPulseReset < x_req and gantry.yPulseReset < y_req:
-					print 'Entering first while loop'
+				
 					for j in range(denominator):
 						if j < numerator:
 							pi.set_bank_1((1<<gantry.XSTEP) | (1<<gantry.YSTEP))
@@ -296,7 +359,7 @@ def pathMovement():
 			
 			if denominator < numerator:
 				while gantry.xPulseReset < x_req and gantry.yPulseReset < y_req:
-					print 'Entering first while loop'
+			
 					for j in range(numerator):
 						if j < denominator:
 							pi.set_bank_1((1<<gantry.XSTEP) | (1<<gantry.YSTEP))
@@ -343,7 +406,7 @@ def pathMovement():
 				
 		if gantry.xPulseReset < x_req and gantry.yPulseReset == y_req:
 			while gantry.xPulseReset < x_req:
-				print 'Entering X while loop'
+
 				pi.write(gantry.XSTEP, 1)
 				sleep(delay * speed)
 				pi.write(gantry.XSTEP, 0)
@@ -373,7 +436,7 @@ def pathMovement():
 				
 		if gantry.yPulseReset < y_req and gantry.xPulseReset == x_req:	
 			while gantry.yPulseReset < y_req:
-				print 'Entering Y while loop'
+
 				pi.write(gantry.YSTEP, 1)
 				sleep(delay * speed)
 				pi.write(gantry.YSTEP, 0)
@@ -407,6 +470,8 @@ def pathMovement():
 		#Reset Pulse Counters for next coordinate use
 		gantry.xPulseReset = 0
 		gantry.yPulseReset = 0
+	x_coordinate = oldx
+	y_coordinate = oldy
 		
 		
 		
@@ -528,8 +593,8 @@ def displayFiles():
 	while c < num_of_files:
 		only_filename = path_leaf(filenames[c])
 		trials_per_file[c] = 1
-		tmp_label = Label(paths_box, text = str(only_filename))
-		tmp_trial_label = Label(paths_box, text = str(trials_per_file[c]))
+		tmp_label = Label(paths_widget_frame, text = str(only_filename))
+		tmp_trial_label = Label(paths_widget_frame, text = str(trials_per_file[c]))
 		trialLabels[c] = tmp_trial_label
 		fileLabels[c] = tmp_label
 		fileLabels[c].grid(row = c + 1, column = 0)
@@ -565,8 +630,8 @@ def createScaleButtons():
 		ytmp_var = IntVar()
 		x_scale_vars[c] = xtmp_var
 		y_scale_vars[c] = ytmp_var
-		xtmp_button = Checkbutton(paths_box, variable = x_scale_vars[c])
-		ytmp_button = Checkbutton(paths_box, variable = y_scale_vars[c])
+		xtmp_button = Checkbutton(paths_widget_frame, variable = x_scale_vars[c])
+		ytmp_button = Checkbutton(paths_widget_frame, variable = y_scale_vars[c])
 		xScaleButtons[c] = xtmp_button
 		xScaleButtons[c].grid(row = c + 1, column = 1)
 		yScaleButtons[c] = ytmp_button
@@ -595,7 +660,7 @@ def createTrialEntries():
 	num_of_files = len(filenames)
 	c = 0
 	while c < num_of_files:
-		tmp_entry = Entry(paths_box)
+		tmp_entry = Entry(paths_widget_frame, width = 5)
 		trialEntries[c] = tmp_entry
 		trialEntries[c].grid(row = c + 1, column = 3)
 		c += 1
@@ -688,7 +753,7 @@ def execute_files():
 			#Create output file name
 			outputFile = filename_without_ext[0] + '_trial_' + str(trial_num + 1) + '.txt'
 			#print outputFile
-			
+			"""
 			if gantry.TTL == 0:
 				while True:
 					print 'Entered TTL Loop'
@@ -696,21 +761,20 @@ def execute_files():
 					root.update_idletasks()
 					if gantry.TTL == 1:
 						break
+			"""
 			
-			
-			pathMovement()
-			x_coordinate.reverse()
-			y_coordinate.reverse()
+			pathMovement(c, 0)
 			if abortNum == 1:
 				return 1
-			pathMovement()
-			x_coordinate.reverse()
-			y_coordinate.reverse()
+			pathMovement(c, 1)
+			
 			if abortNum == 1:
 				return 1
 			gantry.TTLPulse = 0
 			pi.write(gantry.TTLoutput, 1)
 			trial_num += 1
+			
+			#sleep(wait_time)
 			
 		
 		#Reset coordinate arrays to 0
@@ -736,34 +800,59 @@ This section of the GUI will take care of the size and layout of the window
 """
 root.geometry("1000x500")
 root.title("Gantry Control GUI")
-left = Frame(root, borderwidth = 2, relief="solid")
-right = Frame(root, borderwidth = 2, relief="solid")
+left = Frame(root, borderwidth = 2, relief="solid", width = 500, height = 500)
+right = Frame(root, borderwidth = 2, relief="solid", width = 500, height = 500)
+#right.pack_propagate(False)
 
 left.pack(side = "left", expand = True, fill = "both")
 right.pack(side = "right", expand = True, fill = "both")
 
 file_buttons_box = Frame(right, borderwidth = 2, relief = "solid")
-file_buttons_box.pack(expand = False, fill = "both")
+file_buttons_box.pack(expand = True, fill = "both")
 
 paths_box = Frame(right, borderwidth = 2, relief = "solid")
-paths_box.pack(expand = False, fill = "both")
+paths_box.pack(expand = True, fill = "both")
+paths_box.pack_propagate(False)
+
+paths_box_canvas = Canvas(paths_box)
+#paths_box_canvas.grid(row = 0, column = 0, sticky = "news")
+paths_box_canvas.pack(expand = True, fill = "both")
+
+paths_canvas_scroll = Scrollbar(paths_box_canvas, orient = "vertical", command = paths_box_canvas.yview)
+paths_canvas_scroll.pack(side = "right", fill = "y")
+paths_box_canvas.configure(yscrollcommand = paths_canvas_scroll.set)
+
+paths_widget_frame = Frame(paths_box_canvas)
+paths_box_canvas.create_window((0, 0), window = paths_widget_frame, anchor = 'nw')
+
+
+
+
+
+
+
+parameters_box = Frame(right, borderwidth = 2, relief = "solid")
+parameters_box.pack(expand = True, fill = "both")
+
+
+
 
 """
 These are labels that acts as titles for checkbuttons, entries, etc.
 """
-file_title_label = Label(paths_box, text = "File Name", padx = 5)
+file_title_label = Label(paths_widget_frame, text = "File Name", padx = 5)
 file_title_label.grid(row = 0, column = 0)
 
-xscale_label = Label(paths_box, text = "Scale X Axis", padx = 5)
+xscale_label = Label(paths_widget_frame, text = "Scale X Axis", padx = 5)
 xscale_label.grid(row = 0, column = 1)
 
-yscale_label = Label(paths_box, text = "Scale Y Axis", padx = 5)
+yscale_label = Label(paths_widget_frame, text = "Scale Y Axis", padx = 5)
 yscale_label.grid(row = 0, column = 2)
 
-enterTrials_label = Label(paths_box, text = "Enter No. of Trials", padx = 5)
+enterTrials_label = Label(paths_widget_frame, text = "Enter No. of Trials", padx = 5)
 enterTrials_label.grid(row = 0, column = 3)
 
-numTrials_title = Label(paths_box, text = "No. of Trials", padx = 5)
+numTrials_title = Label(paths_widget_frame, text = "No. of Trials", padx = 5)
 numTrials_title.grid(row = 0, column = 4)
 
 """
@@ -863,6 +952,12 @@ head_button.place(x = 145, y = 230)
 
 tail_button = Button(left, text = 'Record Tail', width = 15, command = recordTail)
 tail_button.place(x = 145, y = 260)
+
+"""
+These will be entries that should not be destroyed at all
+Things like wait time between pulses or speed input
+"""
+#wait_time_entry = 
 
 
 """
