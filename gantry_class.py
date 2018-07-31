@@ -3,6 +3,7 @@ import keyboard
 import RPi.GPIO as GPIO
 import pigpio
 from time import *
+from math import *
 
 
 
@@ -38,7 +39,8 @@ class Gantry():
 		self.YSTEP = 13
 		self.readX = 24
 		self.readY = 21
-		self.TTLPIN = 17
+		self.TTLinput = 17
+		self.TTLoutput = 18
 		
 		"""
 		These variables will hold the directions 
@@ -63,6 +65,16 @@ class Gantry():
 		
 		self.currentPos = [self.currentX, self.currentY]
 		
+		"""
+		These are the number of pulses required to travel roughly .5 mm
+		This is only for the 64 Step Resolution setting on the drivers
+		Any changes made to the resolution must be changed in the frequency
+		as well
+		"""
+		
+		self.xfreq = 92
+		self.yfreq = 119
+		
 		
 		"""
 		This variable will keep track of the user defined speed
@@ -77,6 +89,12 @@ class Gantry():
 		This variable will be modified based on the TTL Pulse received
 		"""
 		self.TTL = 0
+		
+		"""
+		This variable will hold the wait time between trials
+		Defaults to 1 second
+		"""
+		self.wait = 1
 		
 		"""
 		These variables will be used to hold the locations of the head and tails of the fish
@@ -124,8 +142,8 @@ class Gantry():
 	This should be called everytime a pulse is sent either in the positive of negative direction
 	"""
 	def getPos(self):
-		self.currentX = float(self.xPulses) / float(92)
-		self.currentY = float(self.yPulses) / float(119)
+		self.currentX = float(self.xPulses) / float(self.xfreq)
+		self.currentY = float(self.yPulses) / float(self.yfreq)
 		#print 'Current Position: (%f, %f)' % (self.currentX, self.currentY)
 		
 	"""
@@ -175,55 +193,21 @@ class Gantry():
 			self.ydir = 0
 		elif distance > 0:
 			self.ydir = 1
+	
+	
 	"""
-	def keyboard_control(self):
-		while True:
-			
-			self.getPos()
-			
-			if keyboard.is_pressed('d'):
-				self.xdir = self.CW
-				pi.write(self.XDIR, self.xdir)
-				pi.write(self.XSTEP, 1)
-				sleep(.0001)
-				pi.write(self.XSTEP, 0)
-				sleep(.0001)
-				 
-			if keyboard.is_pressed('a') and self.currentX != 0:
-				self.xdir = self.CCW
-				pi.write(self.XDIR, self.xdir)
-				pi.write(self.XSTEP, 1)
-				sleep(.0001)
-				pi.write(self.XSTEP, 0)
-				sleep(.0001)
-				
-			if keyboard.is_pressed('s') and self.currentY != 0 :
-				self.ydir = self.CCW
-				pi.write(self.YDIR, self.ydir)
-				pi.write(self.YSTEP, 1)
-				sleep(.0001)
-				pi.write(self.YSTEP, 0)
-				sleep(.0001)
-				
-			if keyboard.is_pressed('w'):
-				self.ydir = self.CW
-				pi.write(self.YDIR, self.ydir)
-				pi.write(self.YSTEP, 1)
-				sleep(.0001)
-				pi.write(self.YSTEP, 0)
-				sleep(.0001)
-				
-			if keyboard.is_pressed('esc'):
-				break
-			
-			
-		
-		
+	These functions will be used to change the frequency of pulses required
+	to travel .5 mm
 	"""
 	
+	def changeXFreq(self):
+		pulses_per_rev = self.xresolution * 200
+		self.xfreq = (float(.5)*float(pulses_per_rev))/float(70.0)
+		self.xfreq = ceil(self.xfreq)
+		print self.xfreq
 	
-		
-		
-		
-	
-	
+	def changeYFreq(self):
+		pulses_per_rev = self.yresolution * 200
+		self.yfreq = (float(.5)*float(pulses_per_rev))/float(54.0)
+		self.yfreq = ceil(self.yfreq)
+		print self.yfreq
