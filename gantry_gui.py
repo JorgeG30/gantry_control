@@ -9,6 +9,9 @@ from time import *
 import gantry_class
 import csv
 from math import *
+from os import listdir
+from os.path import isfile, join
+
 
 #Connect to pigpio daemon
 pi = pigpio.pi()
@@ -74,9 +77,6 @@ yScaleButtons = {}
 gotoX = 0
 gotoY = 0
 
-# Number of pulses for 0.5 mm
-xfreq = 92
-yfreq = 119
 
 """
 These are utility functions like extracting filenames from path
@@ -298,8 +298,8 @@ def pathMovement(file_index, reverse):
 		pi.write(gantry.YDIR, gantry.ydir)
 		
 		#Number of required pulses to travel for each point
-		x_req = abs(distX * xfreq)
-		y_req = abs(distY * yfreq)
+		x_req = abs(distX * gantry.xfreq)
+		y_req = abs(distY * gantry.yfreq)
 		
 		print x_req
 		print y_req
@@ -651,8 +651,8 @@ def gotoXY(nextX, nextY):
 	pi.write(gantry.YDIR, gantry.ydir)
 	
 	#Determine number of pulses required to reach destination
-	x_req = abs(xdist * xfreq)
-	y_req = abs(ydist * yfreq)
+	x_req = abs(xdist * gantry.xfreq)
+	y_req = abs(ydist * gantry.yfreq)
 	
 	#Write to the pins
 	while gantry.xPulseReset < x_req and gantry.yPulseReset < y_req:
@@ -702,6 +702,17 @@ def select_files():
 	createScaleButtons()
 	createTrialEntries()
 	bindEntryLabels()
+
+def select_directory():
+	global filenames
+	chosen_dir = askdirectory(title = 'Select Directory')
+	print chosen_dir
+	filenames = [f for f in listdir(chosen_dir) if isfile(join(chosen_dir, f))]
+	displayFiles()
+	createScaleButtons()
+	createTrialEntries()
+	bindEntryLabels()
+	
 
 def displayFiles():
 	global fileLabels
@@ -815,6 +826,38 @@ def bindEntryLabels():
 	while c < entries_len:
 		trialEntries[c].bind("<Return>", lambda event, index = c: updateTrials(event, index))
 		c += 1
+
+def setResolution(event, axis):
+	prev_xresolution = gantry.xresolution
+	prev_yresolution = gantry.yresolution
+	resolutions = [2, 4, 8, 16, 32, 64, 128, 256, 5, 10, 25, 50, 125, 250]
+	if axis == 1:
+		gantry.xresolution = int(xstep_entry.get())
+		if gantry.xresolution not in resolutions:
+			tkMessageBox.showerror("Invalid X Resolution", "Resolution entered is not valid. Please enter a valid Resolution")
+			gantry.xresolution = prev_xresolution
+			return 1
+		else:
+			gantry.changeXFreq()
+			xstep_label.config(text = 'X Step Resolution: ' + str(gantry.xresolution))
+			xstep_label.update()
+			root.focus()
+			
+	
+	if axis == 2:
+		gantry.yresolution = int(ystep_entry.get())
+		if gantry.yresolution not in resolutions:
+			tkMessageBox.showerror("Invalid Y Resolution", "Resolution entered is not valid. Please enter a valid Resolution")
+			gantry.yresolution = prev_yresolution
+			return 1
+		else:
+			gantry.changeYFreq()
+			ystep_label.config(text = 'Y Step Resolution: ' + str(gantry.yresolution))
+			ystep_label.update()
+			root.focus()
+			
+		
+		
 		
 def updateTrials(event, index):
 	global trialLabels
@@ -840,7 +883,7 @@ def execute_files():
 	If not, give error message and return 1
 	"""
 	if filenames == None:
-		tkMessageBox.showerror("Error","No files selected, Please select files before trying to start movement")
+		tkMessageBox.showerror("No Files Selected","No files selected, Please select files before trying to start movement")
 		return 1
 		
 	
@@ -897,6 +940,7 @@ def execute_files():
 					if gantry.TTL == 1:
 						break
 			
+			TTLfromPi()
 			
 			#Start Forward Movement and check for abort after
 			pathMovement(c, 0)
@@ -912,16 +956,21 @@ def execute_files():
 			x_coordinate.reverse()
 			y_coordinate.reverse()
 			
-			gantry.TTL = 0
+			
 			pi.write(gantry.TTLoutput, 1)
 			trial_num += 1
 			
 			sleep(gantry.wait)
 			
+			TTLfromPi()
+			
 		
 		#Reset coordinate arrays to 0
 		x_coordinate = []
 		y_coordinate = []
+		
+		#Reset TTL for next file
+		gantry.TTL = 0
 		
 		#Increment Counter
 		c += 1
@@ -940,7 +989,7 @@ root = Tk()
 """
 This section of the GUI will take care of the size and layout of the window
 """
-root.geometry("1000x500")
+root.geometry("1000x600")
 root.title("Gantry Control GUI")
 left = Frame(root, borderwidth = 2, relief="solid", width = 600, height = 500)
 right = Frame(root, borderwidth = 2, relief="solid", width = 400, height = 500)
@@ -955,7 +1004,7 @@ file_buttons_box.pack(expand = True, fill = "both")
 
 paths_box = Frame(right, borderwidth = 2, relief = "solid")
 paths_box.pack(expand = True, fill = "both")
-paths_box.pack_propagate(False)
+paths_box.pack_propagate(True)
 
 paths_box_canvas = Canvas(paths_box)
 #paths_box_canvas.grid(row = 0, column = 0, sticky = "news")
@@ -968,17 +1017,8 @@ paths_box_canvas.configure(yscrollcommand = paths_canvas_scroll.set)
 paths_widget_frame = Frame(paths_box_canvas)
 paths_box_canvas.create_window((0, 0), window = paths_widget_frame, anchor = 'nw')
 
-
-
-
-
-
-
 parameters_box = Frame(right, borderwidth = 2, relief = "solid")
 parameters_box.pack(expand = True, fill = "both")
-
-
-
 
 """
 These are labels that acts as titles for checkbuttons, entries, etc.
@@ -1070,6 +1110,12 @@ speed_label.grid(row = 0, column = 2)
 wait_label = Label(parameters_box, text = 'Current Wait (secs): ' + str(gantry.wait))
 wait_label.grid(row = 1, column = 2)
 
+xstep_label = Label(parameters_box, text = 'X Step Resolution: ' + str(gantry.xresolution))
+xstep_label.grid(row = 2, column = 2)
+
+ystep_label = Label(parameters_box, text = 'Y Step Resolution: ' + str(gantry.yresolution))
+ystep_label.grid(row = 3, column = 2)
+
 """
 This section takes care of the buttons that are used in the GUI
 """
@@ -1078,6 +1124,9 @@ keyboard_button.pack()
 
 selected_files = Button(file_buttons_box, text = 'Select Files to Open', width = 25, command = select_files)
 selected_files.pack()
+
+select_dir = Button(file_buttons_box, text = 'Select Directory to Open', width = 25, command = select_directory)
+select_dir.pack()
 
 execute_files = Button(file_buttons_box, text = 'Start Movement', width = 25, command = execute_files)
 execute_files.pack()
@@ -1116,10 +1165,10 @@ goto_button = Button(parameters_box, text = 'Go To XY', width = 15, command = la
 goto_button.grid(row = 4, column = 1)
 
 ttl_button = Button(parameters_box, text = 'TTL to Pi', width = 15, command = TTLtoPi)
-ttl_button.grid(row = 4, column = 3)
+ttl_button.grid(row = 5, column = 1)
 
 ttl_from_button = Button(parameters_box, text = 'TTL from Pi', width = 15, command = TTLfromPi)
-ttl_from_button.grid(row = 5, column = 3)
+ttl_from_button.grid(row = 6, column = 1)
 
 """
 These will be entries that should not be destroyed at all
@@ -1143,7 +1192,14 @@ wait_entry.grid(row = 1, column = 3)
 wait_entry.bind("<Return>", getWait)
 speed_entry.bind("<Return>", getSpeed)
 
+xstep_entry = Entry(parameters_box, width = 8)
+xstep_entry.grid(row = 2, column = 3)
 
+ystep_entry = Entry(parameters_box, width = 8)
+ystep_entry.grid(row = 3, column = 3)
+
+xstep_entry.bind("<Return>", lambda event, axis = 1 : setResolution(event, axis))
+ystep_entry.bind("<Return>", lambda event, axis = 2 : setResolution(event, axis))
 
 
 """
