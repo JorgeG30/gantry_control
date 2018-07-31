@@ -8,6 +8,7 @@ import pigpio
 from time import *
 import gantry_class
 import csv
+from math import *
 
 #Connect to pigpio daemon
 pi = pigpio.pi()
@@ -68,6 +69,14 @@ trialEntries = {}
 trialLabels = {}
 xScaleButtons = {}
 yScaleButtons = {}
+
+#Variables for goto function
+gotoX = 0
+gotoY = 0
+
+# Number of pulses for 0.5 mm
+xfreq = 92
+yfreq = 119
 
 """
 These are utility functions like extracting filenames from path
@@ -171,13 +180,13 @@ def pathScaling(axis):
 			length = len(x_coordinate)
 			max_xcoordinate = max(x_coordinate)
 			min_xcoordinate = min(x_coordinate)
-			range_diff = gantry.xTail - gantry.xHead
-			value_diff = max_xcoordinate - min_xcoordinate
+			xrange_diff = gantry.xTail - gantry.xHead
+			xvalue_diff = max_xcoordinate - min_xcoordinate
 			c = 0
 			""" Loop through the coordinates"""
 			while c < length :
 				currentx_temp[c] = x_coordinate[c] - min_xcoordinate
-				x_scaled[c]      = (((range_diff)/(value_diff))*currentx_temp[c]) + gantry.xHead
+				x_scaled[c]      = (((xrange_diff)/(xvalue_diff))*currentx_temp[c]) + gantry.xHead
 				c+=1
 	
 	if axis == 2:
@@ -202,6 +211,10 @@ def pathScaling(axis):
 	
 def pathMovement(file_index, reverse):
 	
+	#Reset pulse reset counters
+	gantry.xPulseReset = 0
+	gantry.yPulseReset = 0
+	
 	#Declare any global variables
 	global abortNum
 	global pause_var
@@ -211,18 +224,22 @@ def pathMovement(file_index, reverse):
 	global x_coordinate
 	global y_coordinate
 	
-	oldx = x_coordinate
-	oldy = y_coordinate
-	
-	if int(x_scale_vars[file_index].get()) == 1:
-		x_coordinate = (x_scaled)
-		
-	if int(y_scale_vars[file_index].get()) == 1:
-		y_coordinate = tuple(y_scaled)
+	unscaled_x = x_coordinate
+	unscaled_y = y_coordinate
 	
 	if reverse == 1:
 		x_coordinate.reverse()
 		y_coordinate.reverse()
+	
+	if int(x_scale_vars[file_index].get()) == 1:
+		pathScaling(1)
+		x_coordinate = x_scaled
+		
+	if int(y_scale_vars[file_index].get()) == 1:
+		pathScaling(2)
+		y_coordinate = y_scaled
+	
+	
 	
 	
 	
@@ -248,11 +265,8 @@ def pathMovement(file_index, reverse):
 	#Check whether or not path scaling is turned on or off
 	
 	delay = .0002
-	speed = 1
+	speed = gantry.speed
 	
-	# Number of pulses for 0.5 mm
-	xfreq = 92
-	yfreq = 119
 	
 	#Declare counter and loop through the coordinates
 	c = 0
@@ -266,10 +280,12 @@ def pathMovement(file_index, reverse):
 		nextX = x_coordinate[c]
 		nextY = y_coordinate[c]
 		
-		print 'Next Coordinate: (%f, %f)' % (nextX, nextY)
 		
-		nextX = int(float(nextX))
-		nextY = int(float(nextY))
+		
+		nextX = float(nextX)
+		nextY = float(nextY)
+		
+		print 'Next Coordinate: (%f, %f)' % (nextX, nextY)
 		
 		#Calculate the distance between the points
 		distX = nextX - currX
@@ -299,14 +315,14 @@ def pathMovement(file_index, reverse):
 			if ratio < .05:
 				numerator = ratio * (10 ** 3)
 				denominator = 10 ** 3
-				numerator = round(numerator)
+				numerator = ceil(numerator)
 			elif ratio >= .05 and ratio < 10:
 				numerator = float(ratio)*float(10)
 				denominator = 10
-				numerator = int(round(numerator))
+				numerator = int(ceil(numerator))
 			
 			else:
-				numerator = int(round(ratio))
+				numerator = int(ceil(ratio))
 				denominator = 1 
 			
 			if denominator >= numerator:
@@ -315,9 +331,9 @@ def pathMovement(file_index, reverse):
 					for j in range(denominator):
 						if j < numerator:
 							pi.set_bank_1((1<<gantry.XSTEP) | (1<<gantry.YSTEP))
-							sleep(delay * speed)
+							sleep(delay / speed)
 							pi.clear_bank_1((1<<gantry.XSTEP) | (1<<gantry.YSTEP))
-							sleep(delay * speed)
+							sleep(delay / speed)
 							xlabel.config(text = str(gantry.currentX))
 							ylabel.config(text = str(gantry.currentY))
 							xlabel.update()
@@ -327,9 +343,9 @@ def pathMovement(file_index, reverse):
 							
 						else:
 							pi.write(gantry.YSTEP, 1)
-							sleep(delay * speed)
+							sleep(delay / speed)
 							pi.write(gantry.YSTEP, 0)
-							sleep(delay * speed)
+							sleep(delay / speed)
 							xlabel.config(text = str(gantry.currentX))
 							ylabel.config(text = str(gantry.currentY))
 							xlabel.update()
@@ -363,9 +379,9 @@ def pathMovement(file_index, reverse):
 					for j in range(numerator):
 						if j < denominator:
 							pi.set_bank_1((1<<gantry.XSTEP) | (1<<gantry.YSTEP))
-							sleep(delay * speed)
+							sleep(delay / speed)
 							pi.clear_bank_1((1<<gantry.XSTEP) | (1<<gantry.YSTEP))
-							sleep(delay * speed)
+							sleep(delay / speed)
 							xlabel.config(text = str(gantry.currentX))
 							ylabel.config(text = str(gantry.currentY))
 							xlabel.update()
@@ -374,9 +390,9 @@ def pathMovement(file_index, reverse):
 							
 						else:
 							pi.write(gantry.XSTEP, 1)
-							sleep(delay * speed)
+							sleep(delay / speed)
 							pi.write(gantry.XSTEP, 0)
-							sleep(delay * speed)
+							sleep(delay / speed)
 							xlabel.config(text = str(gantry.currentX))
 							ylabel.config(text = str(gantry.currentY))
 							xlabel.update()
@@ -404,13 +420,13 @@ def pathMovement(file_index, reverse):
 		xlabel.update()
 		ylabel.update()
 				
-		if gantry.xPulseReset < x_req and gantry.yPulseReset == y_req:
+		if gantry.xPulseReset < x_req and gantry.yPulseReset >= y_req:
 			while gantry.xPulseReset < x_req:
 
 				pi.write(gantry.XSTEP, 1)
-				sleep(delay * speed)
+				sleep(delay / speed)
 				pi.write(gantry.XSTEP, 0)
-				sleep(delay * speed)
+				sleep(delay / speed)
 				xlabel.config(text = str(gantry.currentX))
 				ylabel.config(text = str(gantry.currentY))
 				xlabel.update()
@@ -434,13 +450,13 @@ def pathMovement(file_index, reverse):
 		xlabel.update()
 		ylabel.update()
 				
-		if gantry.yPulseReset < y_req and gantry.xPulseReset == x_req:	
+		if gantry.yPulseReset < y_req and gantry.xPulseReset >= x_req:	
 			while gantry.yPulseReset < y_req:
 
 				pi.write(gantry.YSTEP, 1)
-				sleep(delay * speed)
+				sleep(delay / speed)
 				pi.write(gantry.YSTEP, 0)
-				sleep(delay * speed)
+				sleep(delay / speed)
 				xlabel.config(text = str(gantry.currentX))
 				ylabel.config(text = str(gantry.currentY))
 				xlabel.update()
@@ -470,8 +486,9 @@ def pathMovement(file_index, reverse):
 		#Reset Pulse Counters for next coordinate use
 		gantry.xPulseReset = 0
 		gantry.yPulseReset = 0
-	x_coordinate = oldx
-	y_coordinate = oldy
+	
+	x_coordinate = unscaled_x
+	y_coordinate = unscaled_y
 		
 		
 		
@@ -561,6 +578,123 @@ def keyboard_control():
 	ylabel.update()
 	end_key = 0
 
+def TTLfromPi():
+	
+	#Send TTL pulse from pi to whatever device is connected on output pin
+	pi.write(gantry.TTLoutput, 1)
+	sleep(.0002)
+	pi.write(gantry.TTLoutput, 0)
+	sleep(.0002)
+
+def TTLtoPi():
+	
+	#Send TTL pulse to TTL receive pin on Pi
+	pi.write(gantry.TTLinput, 1)
+	sleep(.0002)
+	pi.write(gantry.TTLinput, 0)
+	sleep(.0002)
+
+def getX(event):
+	global gotoX
+	gotoX = float(gotoX_entry.get())
+	gotoXY_label.configure(text = str(gotoX) +', '+str(gotoY))
+	gotoXY_label.update()
+	gotoY_entry.focus()
+
+def getY(event):
+	global gotoY
+	gotoY = float(gotoY_entry.get())
+	gotoXY_label.configure(text = str(gotoX) +', '+str(gotoY))
+	gotoXY_label.update()
+	goto_button.focus()
+
+def getSpeed(event):
+	gantry.speed = float(speed_entry.get())
+	speed_label.configure(text = 'Current Speed: ' + str(gantry.speed))
+	speed_label.update()
+	root.focus()
+	
+def getWait(event):
+	gantry.wait = float(wait_entry.get())
+	wait_label.configure(text = 'Current Wait (secs): ' + str(gantry.wait))
+	wait_label.update()
+	root.focus()
+
+def gotoXY(nextX, nextY):
+	
+	print 'Entering goto function'
+	
+	nextX = gotoX
+	nextY = gotoY
+	
+	print nextX
+	print nextY
+	
+	#Reset pulse reset counters
+	gantry.xPulseReset = 0
+	gantry.yPulseReset = 0
+	
+	x_pos = gantry.currentX
+	y_pos = gantry.currentY
+	
+	#Get distance between points
+	xdist = nextX - x_pos
+	ydist = nextY - y_pos
+	
+	print 'xdist: ', xdist
+	print 'ydist: ', ydist
+	
+	#Determine direction of gantry based on distance and write to gantry
+	gantry.getxdir(xdist)
+	gantry.getydir(ydist)
+	pi.write(gantry.XDIR, gantry.xdir)
+	pi.write(gantry.YDIR, gantry.ydir)
+	
+	#Determine number of pulses required to reach destination
+	x_req = abs(xdist * xfreq)
+	y_req = abs(ydist * yfreq)
+	
+	#Write to the pins
+	while gantry.xPulseReset < x_req and gantry.yPulseReset < y_req:
+		pi.set_bank_1((1<<gantry.XSTEP) | (1<<gantry.YSTEP))
+		sleep(.0002)
+		pi.clear_bank_1((1<<gantry.XSTEP) | (1<<gantry.YSTEP))
+		sleep(.0002)
+		xlabel.config(text = str(gantry.currentX))
+		ylabel.config(text = str(gantry.currentY))
+		xlabel.update()
+		ylabel.update()
+	
+	while gantry.xPulseReset < x_req and gantry.yPulseReset >= y_req:
+		pi.write(gantry.XSTEP, 1)
+		sleep(.0002)
+		pi.write(gantry.XSTEP, 0)
+		sleep(.0002)
+		xlabel.config(text = str(gantry.currentX))
+		ylabel.config(text = str(gantry.currentY))
+		xlabel.update()
+		ylabel.update()
+	
+	while gantry.yPulseReset < y_req and gantry.xPulseReset >= x_req:
+		pi.write(gantry.YSTEP, 1)
+		sleep(.0002)
+		pi.write(gantry.YSTEP, 0)
+		sleep(.0002)
+		xlabel.config(text = str(gantry.currentX))
+		ylabel.config(text = str(gantry.currentY))
+		xlabel.update()
+		ylabel.update()
+	
+	xlabel.config(text = str(gantry.currentX))
+	ylabel.config(text = str(gantry.currentY))
+	xlabel.update()
+	ylabel.update()
+	
+	gantry.xPulseReset = 0
+	gantry.yPulseReset = 0
+	
+	
+	
 def select_files():
 	global filenames
 	filenames = askopenfilenames(parent = root, title = 'Choose files')
@@ -740,20 +874,21 @@ def execute_files():
 		filename_without_path = path_leaf(filenames[c])
 		filename_without_ext = filename_without_path.split(".")
 		
+		"""
 		#Determine whether or not to scale 
 		if int(x_scale_vars[c].get()) == 1:
 			pathScaling(1)
 		
 		if int(y_scale_vars[c].get()) == 1:
 			pathScaling(2)
-		
+		"""
 		#Repeatedly call pathMovement depending on how many trials specified
 		while trial_num < int(trials_per_file[c]):
 			
 			#Create output file name
 			outputFile = filename_without_ext[0] + '_trial_' + str(trial_num + 1) + '.txt'
 			#print outputFile
-			"""
+			
 			if gantry.TTL == 0:
 				while True:
 					print 'Entered TTL Loop'
@@ -761,20 +896,27 @@ def execute_files():
 					root.update_idletasks()
 					if gantry.TTL == 1:
 						break
-			"""
 			
+			
+			#Start Forward Movement and check for abort after
 			pathMovement(c, 0)
 			if abortNum == 1:
 				return 1
-			pathMovement(c, 1)
 			
+			#Start backward movement and check for abort after
+			pathMovement(c, 1)
 			if abortNum == 1:
 				return 1
-			gantry.TTLPulse = 0
+			
+			#Reverse coordinates for the next trial
+			x_coordinate.reverse()
+			y_coordinate.reverse()
+			
+			gantry.TTL = 0
 			pi.write(gantry.TTLoutput, 1)
 			trial_num += 1
 			
-			#sleep(wait_time)
+			sleep(gantry.wait)
 			
 		
 		#Reset coordinate arrays to 0
@@ -800,12 +942,13 @@ This section of the GUI will take care of the size and layout of the window
 """
 root.geometry("1000x500")
 root.title("Gantry Control GUI")
-left = Frame(root, borderwidth = 2, relief="solid", width = 500, height = 500)
-right = Frame(root, borderwidth = 2, relief="solid", width = 500, height = 500)
-#right.pack_propagate(False)
+left = Frame(root, borderwidth = 2, relief="solid", width = 600, height = 500)
+right = Frame(root, borderwidth = 2, relief="solid", width = 400, height = 500)
+right.pack_propagate(False)
 
 left.pack(side = "left", expand = True, fill = "both")
 right.pack(side = "right", expand = True, fill = "both")
+#left.pack_propagate(False)
 
 file_buttons_box = Frame(right, borderwidth = 2, relief = "solid")
 file_buttons_box.pack(expand = True, fill = "both")
@@ -858,58 +1001,74 @@ numTrials_title.grid(row = 0, column = 4)
 """
 This section of the GUI will take care of the labels that will be used 
 """
-currentx_label = Label(left, fg = "dark green")
+currentx_label = Label(left)
 currentx_label.config(text = "Current X Position: ")
 currentx_label.place(x = 90, y = 70)
 
-currenty_label = Label(left, fg = "dark green")
+currenty_label = Label(left)
 currenty_label.config(text = "Current Y Position: ")
 currenty_label.place(x = 90, y = 90)
 
-xlabel = Label(left, fg = "dark green")
+xlabel = Label(left)
 xlabel.config(text = str(gantry.currentX), width = 20)
 xlabel.place(x = 210, y = 70)
 
-ylabel = Label(left, fg = "dark green")
+ylabel = Label(left)
 ylabel.config(text = str(gantry.currentY), width = 20)
 ylabel.place(x = 210, y = 90)
 
 #These are just the labels that tell you what each value is
-xhead_label = Label(left, fg = "dark green")
+xhead_label = Label(left)
 xhead_label.config(text = 'Current X Head Coordinate:')
 xhead_label.place(x = 34, y = 120)
 
-yhead_label = Label(left, fg = "dark green")
+yhead_label = Label(left)
 yhead_label.config(text = 'Current Y Head Coordinate: ')
 yhead_label.place(x = 34, y = 140)
 
-xtail_label = Label(left, fg = "dark green")
+xtail_label = Label(left)
 xtail_label.config(text = 'Current X Tail Coordinate: ')
 xtail_label.place(x = 46, y = 170)
 
-ytail_label = Label(left, fg = "dark green")
+gotoXY_label = Label(parameters_box)
+gotoXY_label.configure(text = str(gotoX) +', '+str(gotoY))
+gotoXY_label.grid(row = 3, column = 1)
+
+ytail_label = Label(left)
 ytail_label.config(text = 'Current Y Tail Coordinate: ')
 ytail_label.place(x = 46, y = 190)
 
 #These are the labels for the actual values
-xhead_value = Label(left, fg = "dark green")
+xhead_value = Label(left)
 xhead_value.config(text = str(gantry.xHead), width = 20)
 xhead_value.place(x = 210, y = 120)
 
-yhead_value = Label(left, fg = "dark green")
+yhead_value = Label(left)
 yhead_value.config(text = str(gantry.yHead), width = 20)
 yhead_value.place(x = 210, y = 140)
 
-xtail_value = Label(left, fg = "dark green")
+xtail_value = Label(left)
 xtail_value.config(text = str(gantry.xTail), width = 20)
 xtail_value.place(x = 210, y = 170)
 
-ytail_value = Label(left, fg = "dark green")
+ytail_value = Label(left)
 ytail_value.config(text = str(gantry.yTail), width = 20)
 ytail_value.place(x = 210, y = 190)
 
-auto_control = Label(file_buttons_box, fg = "dark green", text = "Autonomous Control", width = 20)
+auto_control = Label(file_buttons_box, text = "Autonomous Control", width = 20)
 auto_control.pack()
+
+goto_X = Label(parameters_box, text = 'X Coordinate: ', width = 15)
+goto_X.grid(row = 0, column = 0)
+
+goto_Y = Label(parameters_box, text = 'Y Coordinate: ', width = 15)
+goto_Y.grid(row = 1, column = 0)
+
+speed_label = Label(parameters_box, text = 'Current Speed: ' + str(gantry.speed))
+speed_label.grid(row = 0, column = 2)
+
+wait_label = Label(parameters_box, text = 'Current Wait (secs): ' + str(gantry.wait))
+wait_label.grid(row = 1, column = 2)
 
 """
 This section takes care of the buttons that are used in the GUI
@@ -953,11 +1112,38 @@ head_button.place(x = 145, y = 230)
 tail_button = Button(left, text = 'Record Tail', width = 15, command = recordTail)
 tail_button.place(x = 145, y = 260)
 
+goto_button = Button(parameters_box, text = 'Go To XY', width = 15, command = lambda nextX = gotoX, nextY = gotoY: gotoXY(nextX, nextY))
+goto_button.grid(row = 4, column = 1)
+
+ttl_button = Button(parameters_box, text = 'TTL to Pi', width = 15, command = TTLtoPi)
+ttl_button.grid(row = 4, column = 3)
+
+ttl_from_button = Button(parameters_box, text = 'TTL from Pi', width = 15, command = TTLfromPi)
+ttl_from_button.grid(row = 5, column = 3)
+
 """
 These will be entries that should not be destroyed at all
 Things like wait time between pulses or speed input
 """
-#wait_time_entry = 
+gotoX_entry = Entry(parameters_box, width = 8)
+gotoX_entry.grid(row = 0, column = 1)
+
+gotoY_entry = Entry(parameters_box, width = 8)
+gotoY_entry.grid(row = 1, column = 1)
+
+gotoX_entry.bind("<Return>", getX)
+gotoY_entry.bind("<Return>", getY)
+
+speed_entry = Entry(parameters_box, width = 8)
+speed_entry.grid(row = 0, column = 3)
+
+wait_entry = Entry(parameters_box, width = 8)
+wait_entry.grid(row = 1, column = 3)
+
+wait_entry.bind("<Return>", getWait)
+speed_entry.bind("<Return>", getSpeed)
+
+
 
 
 """
