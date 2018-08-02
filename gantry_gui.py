@@ -525,6 +525,27 @@ def keyboard_control():
 	head = False
 	tail = False
 	
+	"""
+	Disable buttons that have nothing to do with the keyboard movement
+	Anything related to autonomous movement must not be available
+	"""
+	abort.configure(state = "disabled")
+	continue_butt.configure(state = "disabled")
+	execute_files.configure(state = "disabled")
+	gotoX_entry.configure(state = "disabled")
+	gotoY_entry.configure(state = "disabled")
+	goto_button.configure(state = "disabled")
+	select_dir.configure(state = "disabled")
+	selected_files.configure(state = "disabled")
+	speed_entry.configure(state = "disabled")
+	ttl_button.configure(state = "disabled")
+	ttl_from_button.configure(state = "disabled")
+	stop.configure(state = "disabled")
+	wait_entry.configure(state = "disabled")
+	xstep_entry.configure(state = "disabled")
+	ystep_entry.configure(state = "disabled")
+	
+	
 	while True:
 			
 			xlabel.config(text = str(gantry.currentX))
@@ -576,6 +597,27 @@ def keyboard_control():
 	ylabel.config(text = str(gantry.currentY))
 	xlabel.update()
 	ylabel.update()
+	
+	"""
+	Re enable all the buttons
+	"""
+	abort.configure(state = "normal")
+	continue_butt.configure(state = "normal")
+	execute_files.configure(state = "normal")
+	gotoX_entry.configure(state = "normal")
+	gotoY_entry.configure(state = "normal")
+	goto_button.configure(state = "normal")
+	select_dir.configure(state = "normal")
+	selected_files.configure(state = "normal")
+	speed_entry.configure(state = "normal")
+	ttl_button.configure(state = "normal")
+	ttl_from_button.configure(state = "normal")
+	stop.configure(state = "normal")
+	wait_entry.configure(state = "normal")
+	xstep_entry.configure(state = "normal")
+	ystep_entry.configure(state = "normal")
+	
+	
 	end_key = 0
 
 def TTLfromPi():
@@ -622,6 +664,8 @@ def getWait(event):
 
 def gotoXY(nextX, nextY):
 	
+	global abortNum
+	
 	print 'Entering goto function'
 	
 	nextX = gotoX
@@ -654,8 +698,12 @@ def gotoXY(nextX, nextY):
 	x_req = abs(xdist * gantry.xfreq)
 	y_req = abs(ydist * gantry.yfreq)
 	
+	print x_req
+	print y_req
+	
 	#Write to the pins
 	while gantry.xPulseReset < x_req and gantry.yPulseReset < y_req:
+		print 'In loop 1'
 		pi.set_bank_1((1<<gantry.XSTEP) | (1<<gantry.YSTEP))
 		sleep(.0002)
 		pi.clear_bank_1((1<<gantry.XSTEP) | (1<<gantry.YSTEP))
@@ -664,8 +712,16 @@ def gotoXY(nextX, nextY):
 		ylabel.config(text = str(gantry.currentY))
 		xlabel.update()
 		ylabel.update()
+		
+		if abortNum == 1:
+			print 'Aborting Movement'
+			root.update() 
+			root.update_idletasks()
+			abortNum = 0
+			return 1
 	
-	while gantry.xPulseReset < x_req and gantry.yPulseReset >= y_req:
+	while gantry.xPulseReset < x_req:
+		print 'In loop 2'
 		pi.write(gantry.XSTEP, 1)
 		sleep(.0002)
 		pi.write(gantry.XSTEP, 0)
@@ -674,8 +730,16 @@ def gotoXY(nextX, nextY):
 		ylabel.config(text = str(gantry.currentY))
 		xlabel.update()
 		ylabel.update()
+		
+		if abortNum == 1:
+			print 'Aborting Movement'
+			root.update() 
+			root.update_idletasks()
+			abortNum = 0
+			return 1
 	
-	while gantry.yPulseReset < y_req and gantry.xPulseReset >= x_req:
+	while gantry.yPulseReset < y_req:
+		print 'In loop 3'
 		pi.write(gantry.YSTEP, 1)
 		sleep(.0002)
 		pi.write(gantry.YSTEP, 0)
@@ -684,6 +748,13 @@ def gotoXY(nextX, nextY):
 		ylabel.config(text = str(gantry.currentY))
 		xlabel.update()
 		ylabel.update()
+		
+		if abortNum == 1:
+			print 'Aborting Movement'
+			root.update() 
+			root.update_idletasks()
+			abortNum = 0
+			return 1
 	
 	xlabel.config(text = str(gantry.currentX))
 	ylabel.config(text = str(gantry.currentY))
@@ -871,6 +942,7 @@ def updateTrials(event, index):
 	
 def execute_files():
 	
+	global filenames
 	global trials_per_file
 	global abortNum
 	global outputFile
@@ -925,11 +997,39 @@ def execute_files():
 		if int(y_scale_vars[c].get()) == 1:
 			pathScaling(2)
 		"""
+		
+		"""
+		Disable buttons that would interfere with autonomous movement
+		"""
+		execute_files.configure(state = "disabled")
+		gotoX_entry.configure(state = "disabled")
+		gotoY_entry.configure(state = "disabled")
+		goto_button.configure(state = "disabled")
+		select_dir.configure(state = "disabled")
+		selected_files.configure(state = "disabled")
+		speed_entry.configure(state = "disabled")
+		wait_entry.configure(state = "disabled")
+		xstep_entry.configure(state = "disabled")
+		ystep_entry.configure(state = "disabled")
+		keyboard_button.configure(state = "disabled")
+		end_keyboard_button.configure(state = "disabled")
+		head_button.configure(state = "disabled")
+		tail_button.configure(state = "disabled")
+		
+		i = 0
+		while i < len(filenames):
+			xScaleButtons[i].configure(state = "disabled")
+			yScaleButtons[i].configure(state = "disabled")
+			trialEntries[i].configure(state = "disabled")
+			i += 1
+		
 		#Repeatedly call pathMovement depending on how many trials specified
 		while trial_num < int(trials_per_file[c]):
 			
 			#Create output file name
-			outputFile = filename_without_ext[0] + '_trial_' + str(trial_num + 1) + '.txt'
+			timestr = strftime("%Y%m%d-%H%M%S")
+			outputFile = filename_without_ext[0] + '_trial_' + str(trial_num + 1) + '_' + timestr + '.txt'
+			
 			#print outputFile
 			
 			if gantry.TTL == 0:
@@ -945,11 +1045,53 @@ def execute_files():
 			#Start Forward Movement and check for abort after
 			pathMovement(c, 0)
 			if abortNum == 1:
+				abortNum = 0
+				execute_files.configure(state = "normal")
+				gotoX_entry.configure(state = "normal")
+				gotoY_entry.configure(state = "normal")
+				goto_button.configure(state = "normal")
+				select_dir.configure(state = "normal")
+				selected_files.configure(state = "normal")
+				speed_entry.configure(state = "normal")
+				wait_entry.configure(state = "normal")
+				xstep_entry.configure(state = "normal")
+				ystep_entry.configure(state = "normal")
+				keyboard_button.configure(state = "normal")
+				end_keyboard_button.configure(state = "normal")
+				head_button.configure(state = "normal")
+				tail_button.configure(state = "normal")
+				i = 0
+				while i < len(filenames):
+					xScaleButtons[i].configure(state = "normal")
+					yScaleButtons[i].configure(state = "normal")
+					trialEntries[i].configure(state = "normal")
+					i += 1
 				return 1
 			
 			#Start backward movement and check for abort after
 			pathMovement(c, 1)
 			if abortNum == 1:
+				abortNum = 0
+				execute_files.configure(state = "normal")
+				gotoX_entry.configure(state = "normal")
+				gotoY_entry.configure(state = "normal")
+				goto_button.configure(state = "normal")
+				select_dir.configure(state = "normal")
+				selected_files.configure(state = "normal")
+				speed_entry.configure(state = "normal")
+				wait_entry.configure(state = "normal")
+				xstep_entry.configure(state = "normal")
+				ystep_entry.configure(state = "normal")
+				keyboard_button.configure(state = "normal")
+				end_keyboard_button.configure(state = "normal")
+				head_button.configure(state = "normal")
+				tail_button.configure(state = "normal")
+				i = 0
+				while i < len(filenames):
+					xScaleButtons[i].configure(state = "normal")
+					yScaleButtons[i].configure(state = "normal")
+					trialEntries[i].configure(state = "normal")
+					i += 1
 				return 1
 			
 			#Reverse coordinates for the next trial
@@ -974,6 +1116,26 @@ def execute_files():
 		
 		#Increment Counter
 		c += 1
+		execute_files.configure(state = "normal")
+		gotoX_entry.configure(state = "normal")
+		gotoY_entry.configure(state = "normal")
+		goto_button.configure(state = "normal")
+		select_dir.configure(state = "normal")
+		selected_files.configure(state = "normal")
+		speed_entry.configure(state = "normal")
+		wait_entry.configure(state = "normal")
+		xstep_entry.configure(state = "normal")
+		ystep_entry.configure(state = "normal")
+		keyboard_button.configure(state = "normal")
+		end_keyboard_button.configure(state = "normal")
+		head_button.configure(state = "normal")
+		tail_button.configure(state = "normal")
+		i = 0
+		while i < len(filenames):
+			xScaleButtons[i].configure(state = "normal")
+			yScaleButtons[i].configure(state = "normal")
+			trialEntries[i].configure(state = "normal")
+			i += 1
 			
 			
 
